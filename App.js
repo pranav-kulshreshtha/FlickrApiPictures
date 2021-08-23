@@ -1,12 +1,14 @@
 import { StatusBar } from 'expo-status-bar';
 import React, {useState, useEffect} from 'react';
 import { Pressable, StyleSheet, Text, View, ActivityIndicator, FlatList,
-          Image, ToastAndroid } from 'react-native';
+          Image, ToastAndroid, TouchableOpacity } from 'react-native';
 import Constants from 'expo-constants';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { TooManyRequests } from 'http-errors';
 import { SearchBar } from 'react-native-elements';
-
+import AntDesign from 'react-native-vector-icons/AntDesign';
+import {NavigationContainer} from '@react-navigation/native'
+import {createStackNavigator} from '@react-navigation/stack';
 
 let button_ripple = {
   borderless: true,
@@ -14,10 +16,11 @@ let button_ripple = {
   radius: 60,
 }
 
-export default class App extends React.Component{
+export default class Home extends React.Component{
 
   constructor(props){
-    //console.log("\nIn constructor")
+    console.log("\n")
+    onEndReachedCalledDuringMomentum = true;
     super(props);
     this.state = {
       isLoadingMain: true,
@@ -30,8 +33,8 @@ export default class App extends React.Component{
   }; 
 
   loadData = () => {
-    //console.log("Loading page : "+this.state.page);
-    const init_url = 'https://www.flickr.com/services/rest/?method=flickr.photos.getRecent&api_key=4a48faf09b9c6370923746614e3ca53f&per_page=40&page='
+    console.log("Loading page : "+this.state.page);
+    const init_url = 'https://www.flickr.com/services/rest/?method=flickr.photos.getRecent&api_key=4a48faf09b9c6370923746614e3ca53f&per_page=20&page='
       +this.state.page+'&format=json&nojsoncallback=1'
     return fetch(init_url).then((response)=> response.json() ).then((resJSON)=> {
       this.setState({
@@ -39,8 +42,8 @@ export default class App extends React.Component{
         isLoadingMain: false,
         isLoadingMore: false,
       })
-      //console.log(resJSON);
-      //console.log("Fetched data size now : "+this.state.picData.length); 
+      console.log("Size of this page : "+resJSON.photos.photo.length);
+      console.log("Fetched data size now : "+this.state.picData.length); 
     } )
     .catch((error)=>{console.log(error)});
   }
@@ -60,21 +63,25 @@ export default class App extends React.Component{
     );
   };
 
-  loadMorePics = ()=>{
-    //console.log("In load more pics")
+  loadMorePics = ({distanceFromEnd})=>{
+    if(!this.onEndReachedCalledDuringMomentum){
+    console.log("In load more pics(Footer reached)")
     this.state.page <= 2 ?
     this.loadNextPage()
     : ToastAndroid.show("Sorry, reached limit!", ToastAndroid.SHORT);
+    this.onEndReachedCalledDuringMomentum = true;
+    }
   };
 
   loadNextPage = ()=>{
     this.setState({isLoadingMore: true})
-    this.setState({page:this.state.page+1});
-    this.loadData();
+    console.log("Page num earlier : "+this.state.page);
+    this.setState({page:(this.state.page)+1}, this.loadData);
+    console.log("Page incremented to "+this.state.page);
   }
 
   renderLoading = ()=>{
-    //console.log("In render loading")
+    console.log("In render loading")
     //console.log("loading more ? "+this.state.isLoadingMore);
     return this.state.isLoadingMore ? (
       <View style={styles.footerLoader}>
@@ -90,6 +97,9 @@ export default class App extends React.Component{
       <StatusBar style="auto" backgroundColor={'#ff9900'}/>
       { this.state.searchOn ?
       <View style={styles.header}>
+       <Pressable onPress={()=>{this.setState({searchOn:false})}}>
+        <AntDesign name="left" size={22} color={"white"}/>
+      </Pressable>
        <SearchBar 
           onCancel={()=>{this.setState({searchOn:false})}}
           onChangeText={(text)=>{this.setState({searchQuery:text})}}
@@ -97,8 +107,11 @@ export default class App extends React.Component{
           containerStyle={styles.searchBarContainer}
           value={this.state.searchQuery}
           placeholder="Search flickr"
-          cancelIcon={true}
           />
+       <TouchableOpacity style={{
+          backgroundColor:'lightgray',padding: 8}}>
+          <Text>Go</Text>
+        </TouchableOpacity>
       </View>
         :
       <View style={styles.header}>
@@ -114,9 +127,10 @@ export default class App extends React.Component{
         <FlatList data={this.state.picData} keyExtractor={(item, index)=>{return index}} 
             renderItem={this.showData} 
             numColumns={2}
-            onEndReached={this.loadMorePics}
-            onEndReachedThreshold={0.1}
+            onEndReached={this.loadMorePics.bind(this)}
+            onEndReachedThreshold={0.5}
             ListFooterComponent={this.renderLoading}
+            onMomentumScrollBegin={() => { this.onEndReachedCalledDuringMomentum = false; }}
             />
           : <ActivityIndicator size={'large'} color={'gray'}/>
         }
@@ -171,8 +185,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
   searchBarContainer: {
-    margin: 20,
-    width:'90%',
+    width:'80%',
     backgroundColor: 'orange',
     borderWidth: 0,
     borderTopWidth:0,
